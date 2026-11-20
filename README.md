@@ -1,12 +1,18 @@
 # California Hospital Utilization Analytics (2020–2024)
 
-> **Project status: Completed.** The Excel workbook and Power BI report were saved, closed, reopened, and checked. Statewide annual totals, cumulative 2020–2024 changes, annual year-over-year (YoY) changes, and monthly month-over-month (MoM) changes for March–May 2020 were validated using statewide-only records in BigQuery and reconciled with the Power BI visuals where applicable.
+> **Project status:** Completed. The Excel workbook and Power BI report were saved, closed, reopened, and checked. Statewide annual totals, cumulative changes from 2020 to 2024, annual year-over-year (YoY) changes, and monthly month-over-month (MoM) changes for March–May 2020 were validated using BigQuery and reconciled with the Power BI visuals where applicable.
 
 ## 1. Project Overview
 
 This project analyzes California hospital utilization from January 2020 through December 2024 using the Hospital Utilization Trends dataset published by the California Department of Health Care Access and Information (HCAI).
 
-The workflow combines Excel for source inspection and validation, Google BigQuery SQL for data-quality checks and time-series calculations, and Power BI for modeling and visualization. The analysis focuses on three service settings: Emergency Department, Inpatient, and Ambulatory Surgery.
+The workflow combines Excel for data preparation and validation, Google BigQuery SQL for data-quality checks and time-series calculations, and Power BI for data modeling and visualization.
+
+The analysis focuses on three service settings:
+
+- Emergency Department
+- Inpatient
+- Ambulatory Surgery
 
 ### Objectives
 
@@ -18,17 +24,19 @@ The workflow combines Excel for source inspection and validation, Google BigQuer
 
 ## 2. Data Source and Structure
 
-- **Dataset:** Hospital Utilization Trends, 2020–2024
-- **Publisher:** California Department of Health Care Access and Information (HCAI)
-- **Source file name used in project documentation:** `hospital-utilization-trends_2020-2024.csv`
-- **Reporting period:** January 2020–December 2024
-- **Monthly periods:** 60
-- **Original records:** 64,997
-- **Original columns:** 5
-- **Service settings:** Inpatient, Emergency Department, Ambulatory Surgery
-- **Data type:** Aggregated utilization counts, not patient-level records
+| Attribute | Description |
+|---|---|
+| Dataset | Hospital Utilization Trends, 2020–2024 |
+| Publisher | California Department of Health Care Access and Information (HCAI) |
+| Source file | `hospital-utilization-trends_2020-2024.csv` |
+| Reporting period | January 2020–December 2024 |
+| Distinct monthly periods | 60 |
+| Original records | 64,997 |
+| Original columns | 5 |
+| Service settings | Inpatient, Emergency Department, Ambulatory Surgery |
+| Data type | Aggregated utilization counts, not patient-level records |
 
-The source dataset includes statewide aggregate records and individual-facility observations. These are different aggregation levels and must be analyzed separately.
+The dataset contains both statewide aggregate records and individual-facility observations. These represent different aggregation levels and must be analyzed separately.
 
 ### Original fields
 
@@ -42,12 +50,12 @@ The source dataset includes statewide aggregate records and individual-facility 
 
 ## 3. Data Preparation and Excel Workflow
 
-The original CSV was imported into Excel for source inspection, preparation, exploratory analysis, and validation. Month labels such as `20-Apr` were converted into standardized monthly dates so they could be sorted chronologically and compared over time.
+The original CSV was imported into Excel for source inspection, preparation, exploratory analysis, and validation. Month labels such as `20-Apr` were converted into standardized monthly dates to support chronological sorting and time-based comparisons.
 
-The preparation and review workflow included:
+The workflow included:
 
 1. Inspecting the source columns, values, and reporting period.
-2. Converting the source month labels into standardized monthly dates.
+2. Converting source month labels into standardized monthly dates.
 3. Preserving source fields and documenting derived fields.
 4. Separating statewide aggregate records from individual-facility records.
 5. Checking duplicate rows, key uniqueness, missing system identifiers, and reporting coverage.
@@ -67,7 +75,17 @@ The preparation and review workflow included:
 | `Data_Quality` | Data-quality checks, findings, and limitations |
 | `Reconciliation` | Comparison of facility aggregates with statewide reported totals |
 
-All transformations should remain traceable to the original dataset. The Excel workbook was saved and reopened successfully after the final chart adjustment.
+All transformations remain traceable to the original dataset. The Excel workbook was saved and reopened successfully after the final chart adjustment.
+
+### Excel evidence
+
+**Monthly utilization table**
+
+![Excel monthly trends table](excel_monthly_trends_table.png)
+
+**Monthly utilization chart**
+
+![Excel monthly trends chart](excel_monthly_trends_chart.png)
 
 ## 4. Methodological Decisions and Data Quality
 
@@ -80,7 +98,7 @@ Statewide records are identified using both conditions:
 
 Statewide trend and annual analyses use statewide aggregate records only. Facility-level comparisons exclude statewide aggregate records and exclude null facility names where appropriate.
 
-**Statewide totals and individual-facility records must never be summed together.** Doing so combines aggregate values with observations represented by those totals and double-counts utilization.
+Statewide totals and individual-facility records must never be summed together. Doing so combines aggregate values with observations already represented by those totals and double-counts utilization.
 
 ### 4.2 Reporting coverage
 
@@ -94,7 +112,9 @@ Missing `System` values are retained as missing. No system affiliation is inferr
 
 ### 4.4 Small-count suppression
 
-HCAI documentation states that counts below 11 are replaced with 11 for de-identification. Therefore, `Count = 11` may represent a suppressed value and does not necessarily mean exactly 11 encounters. Such values are not silently removed or treated as precise counts.
+HCAI's privacy-protection rules indicate that small counts may be suppressed and represented by the value `11`. Therefore, `Count = 11` may represent a suppressed value rather than exactly 11 encounters.
+
+These records are retained in the analysis and are not silently removed or treated as precise counts. The value `11` should be interpreted cautiously, particularly in facility-level comparisons and analyses involving small counts.
 
 ### 4.5 Initial validation baseline
 
@@ -112,61 +132,84 @@ The initial Excel validation recorded the following:
 
 Initial BigQuery checks also returned 64,997 rows, 60 distinct date labels, three settings, no missing dates, no missing settings, no missing counts, no counts failing integer conversion, and no negative counts.
 
+The separate BigQuery audit of `Count = 11` found:
+
+| Setting | Records with `Count = 11` | Total records | Share |
+|---|---:|---:|---:|
+| Ambulatory Surgery | 880 | 19,500 | 4.51% |
+| Inpatient | 812 | 26,565 | 3.06% |
+| Emergency Department | 0 | 18,752 | 0.00% |
+
 These figures are the recorded validation baseline. Basic completeness and type checks do not prove that every value is semantically correct or that every facility reports in every month.
 
 ## 5. BigQuery and SQL Analysis
 
 The CSV was imported into Google BigQuery with automatic schema detection.
 
-- **Project ID:** `project-64ca764a-0f3f-4a31-b12`
-- **Dataset:** `health_analytics`
-- **Table:** `hospital_utilization_v2`
+| Attribute | Value |
+|---|---|
+| Project ID | `project-64ca764a-0f3f-4a31-b12` |
+| Dataset | `health_analytics` |
+| Table | `hospital_utilization_v2` |
 
-### 5.1 Date parsing
+### 5.1 SQL scripts
 
-The original month labels were parsed using:
+The `sql/` directory contains four reusable BigQuery Standard SQL scripts:
+
+| Script | Purpose |
+|---|---|
+| `01_data_quality_checks.sql` | Validates completeness, numeric values, duplicate keys, and small-count patterns |
+| `02_monthly_trends.sql` | Calculates statewide monthly totals, MoM changes, and largest monthly increases and declines |
+| `03_annual_trends.sql` | Calculates annual totals, YoY changes, and cumulative changes from 2020 to 2024 |
+| `04_facility_analysis.sql` | Examines facility-level utilization totals and reporting coverage |
+
+The [`sql/README.md`](sql/README.md) documents the individual scripts, execution workflow, assumptions, and limitations.
+
+### 5.2 Date parsing
+
+The original month labels were parsed into dates using BigQuery's safe date-parsing function:
 
 ```sql
-PARSE_DATE('%y-%b', Date)
+SAFE.PARSE_DATE('%y-%b', Date)
 ```
 
 For example, `20-Apr` becomes `2020-04-01`, enabling chronological sorting, monthly aggregation, and date-based comparisons.
 
-### 5.2 SQL techniques used
+### 5.3 SQL techniques used
 
 - `COUNT`, `COUNT(DISTINCT ...)`, and `COUNTIF` for validation.
 - `SUM`, `AVG`, `GROUP BY`, and `ORDER BY` for aggregation.
-- `PARSE_DATE` and `EXTRACT` for date handling.
+- `SAFE.PARSE_DATE` and `EXTRACT` for date handling.
 - Common table expressions (`WITH`) to organize analytical steps.
 - `LAG()` window functions for month-over-month and year-over-year comparisons.
 - `SAFE_CAST` and `SAFE_DIVIDE` for defensive conversion and division.
 - Annual comparisons and facility reporting coverage.
 - Explicit statewide filters to prevent mixing aggregation levels.
 
-### 5.3 Calculation definitions
+### 5.4 Calculation definitions
 
-Month-over-month percentage change:
+**Month-over-month percentage change**
 
 \[
 \text{MoM Change \%} =
-\frac{\text{Current Month} - \text{Previous Month}}
-{\text{Previous Month}} \times 100
+\frac{\text{Current Month}-\text{Previous Month}}
+{\text{Previous Month}}\times100
 \]
 
-Year-over-year percentage change:
+**Year-over-year percentage change**
 
 \[
 \text{YoY Change \%} =
-\frac{\text{Current Year Total} - \text{Previous Year Total}}
-{\text{Previous Year Total}} \times 100
+\frac{\text{Current Year Total}-\text{Previous Year Total}}
+{\text{Previous Year Total}}\times100
 \]
 
-Cumulative change from 2020 to 2024:
+**Cumulative change from 2020 to 2024**
 
 \[
 \text{Cumulative Change \%} =
-\frac{\text{2024 Total} - \text{2020 Total}}
-{\text{2020 Total}} \times 100
+\frac{\text{2024 Total}-\text{2020 Total}}
+{\text{2020 Total}}\times100
 \]
 
 These are distinct measures. Annual YoY changes must not be confused with the cumulative change across the full 2020–2024 period.
@@ -188,11 +231,11 @@ DISTINCTCOUNT(
 
 ### 6.1 Final dashboard visuals
 
-1. **Monthly Hospital Utilization by Setting (2020–2024)** — line chart comparing monthly counts for all three settings.
-2. **Total Hospital Utilization by Setting (2020–2024)** — bar chart comparing statewide total counts by setting.
-3. **Average Monthly Hospital Utilization by Setting (2020–2024)** — KPI cards showing average monthly statewide counts by setting.
-4. **Months Analyzed** — KPI card showing 60 distinct reporting months.
-5. **Year-over-Year Utilization Change by Setting (2021–2024)** — chart comparing annual percentage changes by setting.
+1. **Monthly Hospital Utilization by Setting (2020–2024):** Line chart comparing monthly counts for all three settings.
+2. **Total Hospital Utilization by Setting (2020–2024):** Bar chart comparing statewide total counts by setting.
+3. **Average Monthly Hospital Utilization by Setting (2020–2024):** KPI cards showing average monthly statewide counts by setting.
+4. **Months Analyzed:** KPI card showing 60 distinct reporting months.
+5. **Year-over-Year Utilization Change by Setting (2021–2024):** Chart comparing annual percentage changes by setting.
 
 The separate `Monthly Emergency Department Utilization` chart and temporary diagnostic table were removed because the emergency-department series is already represented in the main monthly chart and the table was used for troubleshooting.
 
@@ -217,6 +260,10 @@ The total-volume bar chart retains a single color because category-specific colo
 
 The duplicate X-axis title on the main monthly chart was removed. The dashboard layout and chart titles were reviewed. The PBIX was saved, closed, reopened, and checked successfully.
 
+### Power BI dashboard preview
+
+![Power BI dashboard overview](powerbi_dashboard_overview.png)
+
 ## 7. Validated Statewide Findings
 
 ### 7.1 Annual totals and cumulative change, 2020–2024
@@ -238,11 +285,11 @@ These statewide annual totals were calculated in BigQuery using only records whe
 | 2023 | +6.57% | +3.80% | +1.40% |
 | 2024 | +3.30% | +4.40% | +2.31% |
 
-The annual YoY calculations were produced in BigQuery using `LAG()` over annual totals for each setting. The results were compared with the Power BI YoY chart. Small differences of approximately 0.01–0.02 percentage points were observed in some displayed values, consistent with display/rounding precision; the trends and values matched to that precision.
+The annual YoY calculations were produced in BigQuery using `LAG()` over annual totals for each setting. The results were compared with the Power BI YoY chart. Small differences of approximately 0.01–0.02 percentage points were observed in some displayed values, consistent with display and rounding precision; the trends and values matched to that precision.
 
 ### 7.3 Month-over-month change, March–May 2020
 
-The following monthly changes were recalculated using statewide-only records and consistent setting-level aggregation:
+The following monthly changes were recalculated using statewide-only records and consistent setting-level aggregation.
 
 | Setting | March 2020 vs. February | April 2020 vs. March | May 2020 vs. April |
 |---|---:|---:|---:|
@@ -254,9 +301,9 @@ These values were calculated using the same setting and aggregation level across
 
 ### 7.4 Interpretation
 
-- **Emergency Department** had the largest cumulative increase from 2020 to 2024 (+32.76%) and the largest absolute utilization total in both comparison years.
-- **Ambulatory Surgery** increased by 30.80% over the same period. It also showed the largest monthly decline in April 2020 (−56.55%) and the largest rebound in May (+93.91%) among the three settings.
-- **Inpatient** utilization increased by 8.53% cumulatively, a more moderate increase than the other settings.
+- Emergency Department had the largest cumulative increase from 2020 to 2024 (+32.76%) and the largest absolute utilization total in both comparison years.
+- Ambulatory Surgery increased by 30.80% over the same period. It also showed the largest monthly decline in April 2020 (−56.55%) and the largest rebound in May (+93.91%) among the three settings.
+- Inpatient utilization increased by 8.53% cumulatively, a more moderate increase than the other settings.
 - All three settings declined in April 2020 compared with March and increased in May compared with April.
 
 These are descriptive findings about reported statewide utilization counts. They do not establish the causes of the changes, and a month-over-month rebound does not necessarily mean the series returned to its pre-decline level.
@@ -272,7 +319,7 @@ These are descriptive findings about reported statewide utilization counts. They
 7. **Descriptive analysis:** Trends and percentage changes do not establish causal explanations.
 8. **Metric scope:** The dataset supports utilization analysis, not conclusions about mortality, readmissions, length of stay, costs, or patient-level outcomes.
 9. **Suppression effects:** Counts recorded as 11 may affect interpretation of small values and aggregate comparisons.
-10. **Percentage interpretation:** Relative changes should be considered alongside absolute counts and the previous period’s value.
+10. **Percentage interpretation:** Relative changes should be considered alongside absolute counts and the previous period's value.
 
 ## 9. Final Quality Checklist
 
@@ -292,37 +339,46 @@ These are descriptive findings about reported statewide utilization counts. They
 - [x] Excel `Monthly_Trends` chart labels set to quarterly intervals for readability.
 - [x] Excel workbook saved, closed, reopened, and checked successfully.
 - [x] Power BI report saved, closed, reopened, and checked successfully.
+- [x] Four SQL scripts documented in `sql/README.md`.
+- [x] Excel and Power BI screenshots included in the repository.
 
 ## 10. Reproducibility and Repository
 
 To reproduce the analysis:
 
-1. Start with the original HCAI CSV.
-2. Run the documented data-quality checks.
-3. Parse month labels into dates.
-4. Separate statewide records from facility-level observations.
-5. Run statewide trend and annual queries using both statewide filters; use facility-level queries for facility comparisons.
-6. Calculate MoM and YoY changes within each setting and at a consistent aggregation level.
-7. Reconcile SQL results against Power BI visuals before publishing findings.
+1. Obtain the original HCAI CSV dataset.
+2. Import the data into Excel and BigQuery.
+3. Run `sql/01_data_quality_checks.sql` to validate data quality and identify potential small-count suppression.
+4. Parse month labels into dates and separate statewide records from facility-level observations.
+5. Run `sql/02_monthly_trends.sql` for monthly trends and MoM changes.
+6. Run `sql/03_annual_trends.sql` for annual totals, YoY changes, and cumulative changes.
+7. Run `sql/04_facility_analysis.sql` for facility-level totals and reporting coverage.
+8. Reconcile statewide SQL results against Power BI visuals before publishing findings.
 
-Recommended repository contents:
+### Repository contents
 
 - `README.md` — project overview, workflow, findings, quality checks, and limitations.
-- `sql/bigquery_analysis.sql` — reusable, numbered BigQuery Standard SQL queries.
-- `California_Hospital_Utilization_Analytics.pbix` — Power BI report, if suitable for sharing.
-- The Excel workbook used for preparation and validation.
-- Original source CSV, subject to the source license and repository size considerations.
+- `sql/README.md` — SQL documentation and execution guidance.
+- `sql/01_data_quality_checks.sql` — data-quality validation.
+- `sql/02_monthly_trends.sql` — monthly trend analysis.
+- `sql/03_annual_trends.sql` — annual trend analysis.
+- `sql/04_facility_analysis.sql` — facility-level analysis.
+- `California_Hospital_Utilization_Analytics.pbix` — Power BI report.
+- Excel workbook — data preparation, analysis, and validation.
+- `powerbi_dashboard_overview.png` — Power BI dashboard screenshot.
+- `excel_monthly_trends_table.png` — Excel monthly trends table screenshot.
+- `excel_monthly_trends_chart.png` — Excel monthly trends chart screenshot.
 
-The final report files were checked locally by saving and reopening them. If the project is published in a public repository, include the reusable SQL queries and selected screenshots as supporting portfolio materials.
+The Excel workbook and Power BI report were saved and reopened locally after final checks. The SQL scripts provide the documented analytical workflow. To reproduce the results, the original dataset and access to a suitable BigQuery environment are required.
 
 ## 11. Conclusion
 
-This project demonstrates a healthcare analytics workflow combining Excel, BigQuery SQL, and Power BI. It covers data preparation, quality validation, temporal analysis, aggregation, and visualization while addressing an important methodological issue: statewide aggregates must be kept separate from facility-level records.
+This project demonstrates a healthcare analytics workflow combining Excel, BigQuery SQL, and Power BI. It covers data preparation, quality validation, temporal analysis, aggregation, and visualization while addressing a key methodological issue: statewide aggregates must remain separate from facility-level records.
 
-The validated 2020–2024 comparison shows the largest cumulative increase in Emergency Department utilization, followed by Ambulatory Surgery, while Inpatient utilization grew more moderately. The monthly analysis identifies a decline across all three settings in April 2020 followed by a partial rebound in May. These findings are descriptive and should be interpreted in light of reporting coverage and the dataset’s suppression policy.
+The validated 2020–2024 comparison shows the largest cumulative increase in Emergency Department utilization, followed by Ambulatory Surgery, while Inpatient utilization grew more moderately. The monthly analysis identifies a decline across all three settings in April 2020 followed by a rebound in May. These findings are descriptive and should be interpreted in light of reporting coverage and the dataset's suppression policy.
 
 The project is complete, with the analysis reconciled, the dashboard reviewed, and both working files saved and reopened successfully.
 
 ## Data Source Attribution
 
-California Department of Health Care Access and Information (HCAI), *Hospital Utilization Trends, 2020–2024*. The dataset is licensed under Creative Commons Attribution, as specified on the official dataset page.
+California Department of Health Care Access and Information (HCAI), *Hospital Utilization Trends, 2020–2024*. Dataset attribution and licensing should follow the terms stated on the official HCAI dataset page.
